@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/vue@2"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <title>Music API</title>
+</head>
+
+<body>
+    <div id="app">
+        <h1>Spotizer</h1>
+
+        <div class="search-list">
+            <span class="search-title">Rechercher par </span>
+            <span class="search-category" @click="searchCategory = 'Artist'; createPlaylist = false; playlisttab=''; songs='';artists='';albums=''">Artiste</span>
+            <span class="search-category" @click="searchCategory = 'Album'; createPlaylist = false; playlisttab=''; songs='';artists='';albums=''">Album</span>
+            <span class="search-category" @click="searchCategory = 'Musique'; createPlaylist = false; playlisttab=''; songs='';artists='';albums=''">Musique</span>
+            <span class="search-category" @click="searchCategory = 'Playlist'; createPlaylist = false; playlisttab=''; songs='';artists='';albums=''">Playlist</span>
+            <span class="search-category" @click="searchCategory = 'Musique'; createPlaylist = true; playlisttab=''; songs='';artists='';albums=''">Créer une playlist</span>
+        </div>
+
+        <form v-if="searchCategory == 'Album'" class="search-container">
+            <div class="search-btn" @click="searchAlbums()"></div>
+            <select v-model="searchCriteria">
+                <option value="title">Titre</option>
+                <option value="artist">Artiste</option>
+                <option value="albumType">Type d'album</option>
+            </select>
+            <input name="album" type="text" id="search-term" v-model="searchTerm" placeholder="Rechercher un album">
+        </form>
+
+        <form v-if="searchCategory == 'Artist'" class="search-container">
+            <div class="search-btn" @click="searchArtists()"></div>
+            <input name="artist" type="text" id="search-term" v-model="searchTerm" placeholder="Rechercher un artist">
+        </form>
+
+        <form v-if="createPlaylist == true" class="make-container">
+            <input name="title" type="text" id="create-playlist" placeholder="Titre">
+            <div class="make-btn" @click="makePlaylist()">Créer</div>
+        </form>
+
+
+        <form v-if="searchCategory == 'Playlist'" class="search-container">
+            <div class="search-btn" @click="getPlaylistsName()"></div>
+            <input name="playlist" type="text" id="search-term" v-model="searchTerm" placeholder="Rechercher une playlist">
+        </form>
+
+
+        <div v-if="songsInPlaylist.length && createPlaylist == true" class="songs">
+            <div class="song">
+                <table class="table-song">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Titre</th>
+                            <th>Album</th>
+                            <th>Artiste</th>
+                            <th>Durée</th>
+                            <th v-if="createPlaylist == true">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="song in songsInPlaylist" :key="song.id">
+                            <td>
+                                <img class="song-picture" :src="song.album.image" alt="Album Cover">
+                            </td>
+                            <td>{{ song.title }}</td>
+                            <td>{{ song.album.title }}</td>
+                            <td>{{ song.artist.name }}</td>
+                            <td>{{ song.length }}</td>
+                            <td class="action" v-if="createPlaylist == true" @click="deleteSongFromPlaylist(song)">Supprimer de la playlist</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <h2 v-if="createPlaylist == true">Rechercher les musique à ajouter à votre playlist</h2>
+        <form v-if="searchCategory == 'Musique'" class="search-container">
+            <div class="search-btn" @click="searchSongs()"></div>
+            <input name="music" type="text" id="search-term" v-model="searchTerm" placeholder="Rechercher une musique">
+        </form>
+
+
+        <div v-if="isLoading">Chargement en cours...</div>
+
+        <div v-else-if="albums.length" class="albums">
+            <div v-for="album in albums" :key="album.id" class="album">
+                <div class="album-info" @click="showAlbum(album)">
+                    <img :src="album.image" alt="Album Cover">
+                    <h3 class="album-title">{{ album.title }}</h3>
+                    <p class="album-artist">{{ album.artist.name }}</p>
+                    <p class="album-type">{{ album.albumtype.name }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div v-else-if="artists.length" class="albums">
+            <div v-for="artist in artists" :key="artist.id" class="album">
+                <div class="artist-info" @click="showArtist(artist)">
+                    <div class="artist-picture"></div>
+                    <h3 class="artist-title">{{ artist.name }}</h3>
+                </div>
+            </div>
+        </div>
+
+        <!-- Affichage de toutes les playlists -->
+        <div v-else-if="playlisttab.length && !selectedPlaylist" class="playlists">
+            <div v-for="oneplaylist in playlisttab" :key="oneplaylist.id" class="playlist">
+                <h3 class="artist-title" @click="showPlaylist(oneplaylist)">{{ oneplaylist.name }}</h3>
+            </div>
+        </div>
+
+        <div v-else-if="songs.length" class="songs">
+            <div class="song">
+                <table class="table-song">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Titre</th>
+                            <th>Album</th>
+                            <th>Artiste</th>
+                            <th>Durée</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="song in songs" :key="song.id">
+                            <td>
+                                <img class="song-picture" :src="song.album.image" alt="Album Cover">
+                            </td>
+                            <td>{{ song.title }}</td>
+                            <td>{{ song.album.title }}</td>
+                            <td>{{ song.artist.name }}</td>
+                            <td>{{ song.length }}</td>
+                            <td>
+                                <div class="action" @click="getSong(song)">Ajouter à la playlist</div>
+                            </td>
+
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div v-else>Aucun résultat.</div>
+
+        <div v-if="selectedAlbum" class="selected-album">
+            <h2>{{ selectedAlbum.title }}</h2>
+            <img :src="selectedAlbum.image" alt="Album Cover">
+            <h3>Artiste: {{ selectedAlbum.artist.name }}</h3>
+            <h3>Style: {{ selectedAlbum.albumtype.name }}</h3>
+            <h3>Chansons:</h3>
+            <ul>
+                <li v-for="song in selectedAlbum.songs" :key="song.id">
+                    {{ song.title }} - {{ song.length }}
+                </li>
+            </ul>
+            <div @click="selectedAlbum = null" class="exit"></div>
+        </div>
+
+        <div v-if="selectedArtist" class="selected-artist">
+            <h2>{{ selectedArtist.name }}</h2>
+            <div v-if="albums.length" class="albums">
+                <div v-for="album in albums" :key="album.id" class="album">
+                    <div class="album-info" @click="showAlbum(album)">
+                        <img :src="album.image" alt="Album Cover">
+                        <h3 class="album-title">{{ album.title }}</h3>
+                        <p class="album-artist">{{ album.artist.name }}</p>
+                        <p class="album-type">{{ album.albumtype.name }}</p>
+                    </div>
+                </div>
+            </div>
+            <div @click="hideArtist()" class="exit"></div>
+        </div>
+
+        <div v-if="selectedPlaylist" class="selected-playlist">
+            <h2>{{ selectedPlaylist.name }}</h2>
+            <span @click="searchCategory = 'Musique'; createPlaylist = true; playlisttab=''; songs='';artists='';albums=''">Modifier la playlist</span>
+            <div class="song">
+                <table class="table-song">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Titre</th>
+                            <th>Album</th>
+                            <th>Artiste</th>
+                            <th>Durée</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="song in songsInPlaylist" :key="song.id">
+                            <td>
+                                <img class="song-picture" :src="song.album.image" alt="Album Cover">
+                            </td>
+                            <td>{{ song.title }}</td>
+                            <td>{{ song.album.title }}</td>
+                            <td>{{ song.artist.name }}</td>
+                            <td>{{ song.length }}</td>
+
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div @click="hidePlaylist()" class="exit"></div>
+        </div>
+
+        <div v-if="selectedSong" class="selected-song">
+            <h2>{{ selectedSong.title }}</h2>
+            <iframe width="560" height="315" :src="selectedSong.youtube" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+            <div @click="hideSong()" class="exit"></div>
+        </div>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+
+</html>
